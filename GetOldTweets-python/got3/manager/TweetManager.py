@@ -1,6 +1,9 @@
 import urllib.request, urllib.parse, urllib.error,urllib.request,urllib.error,urllib.parse,json,re,datetime,sys,http.cookiejar
 from .. import models
 from pyquery import PyQuery
+import random
+import urllib.request
+import cv2
 
 class TweetManager:
 	
@@ -14,28 +17,51 @@ class TweetManager:
 		results = []
 		resultsAux = []
 		cookieJar = http.cookiejar.CookieJar()
-
+		faceCascade=cv2.CascadeClassifier('abba.xml')
 		active = True
 
 		while active:
 			json = TweetManager.getJsonReponse(tweetCriteria, refreshCursor, cookieJar, proxy)
 			if len(json['items_html'].strip()) == 0:
 				break
-
+                       
 			refreshCursor = json['min_position']
 			scrapedTweets = PyQuery(json['items_html'])
+			for i in scrapedTweets('img'):
+                               
+                                w=i.get('src')
+                                name=random.randrange(1,1000)
+                                full_name=str(name)+'.jpg'
+                                try:
+                                        urllib.request.urlretrieve(w,full_name)
+                                        image = cv2.imread(full_name)
+                                        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                                        faces = faceCascade.detectMultiScale(
+                                            gray,
+                                            scaleFactor=1.1,
+                                            minNeighbors=5,
+                                            minSize=(30, 30),
+                                            flags = cv2.FONT_HERSHEY_SIMPLEX
+                                        )
+                                        print(full_name+' has '+str(len(faces)))
+                                except Exception as e:
+                                        print(e)
 			#Remove incomplete tweets withheld by Twitter Guidelines
 			scrapedTweets.remove('div.withheld-tweet')
 			tweets = scrapedTweets('div.js-stream-tweet')
 			
+			#twt=tweets
 			
+			
+                                
+                                
+                                
 			if len(tweets) == 0:
 				break
 			
 			for tweetHTML in tweets:
 				tweetPQ = PyQuery(tweetHTML)
 				tweet = models.Tweet()
-				
 				usernameTweet = tweetPQ("span.username.js-action-profile-name b").text()
 				txt = re.sub(r"\s+", " ", tweetPQ("p.js-tweet-text").text().replace('# ', '#').replace('@ ', '@'))
 				retweets = int(tweetPQ("span.ProfileTweet-action--retweet span.ProfileTweet-actionCount").attr("data-tweet-stat-count").replace(",", ""))
@@ -109,7 +135,7 @@ class TweetManager:
 		else:
 			urlLang = ''
 		url = url % (urllib.parse.quote(urlGetData), urlLang, refreshCursor)
-		#print(url)
+		
 
 		headers = [
 			('Host', "twitter.com"),
@@ -138,5 +164,5 @@ class TweetManager:
 			return
 		
 		dataJson = json.loads(jsonResponse.decode())
-		#print (url)
+		
 		return dataJson		
